@@ -68,5 +68,26 @@
         <script src="./layers/layers.js" type="text/javascript"></script> 
         <script src="./resources/Autolinker.min.js"></script>
         <script src="./resources/qgis2web.js"></script>
+
+        <!-- Forzar al mapa a recalcular su tamaño correctamente al cargar
+             (soluciona franjas blancas cuando el contenedor tarda en asentarse,
+             típico al incrustar el mapa en un iframe) -->
+        <script>
+        (function() {
+            function forzarTamanoMapa() {
+                if (typeof map !== 'undefined' && map.updateSize) {
+                    map.updateSize();
+                }
+            }
+            // Al cargar todo (imágenes, fuentes, etc., no solo el DOM)
+            window.addEventListener('load', function() {
+                forzarTamanoMapa();
+                // Y otra vez un poco después, por si el layout aún se está asentando
+                setTimeout(forzarTamanoMapa, 300);
+            });
+            // Y cada vez que cambie el tamaño de la ventana/contenedor
+            window.addEventListener('resize', forzarTamanoMapa);
+        })();
+        </script>
     </body>
 </html>
