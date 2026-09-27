@@ -69,25 +69,27 @@
         <script src="./resources/Autolinker.min.js"></script>
         <script src="./resources/qgis2web.js"></script>
 
-        <!-- Forzar al mapa a recalcular su tamaño correctamente al cargar
-             (soluciona franjas blancas cuando el contenedor tarda en asentarse,
-             típico al incrustar el mapa en un iframe) -->
-        <script>
-        (function() {
-            function forzarTamanoMapa() {
-                if (typeof map !== 'undefined' && map.updateSize) {
-                    map.updateSize();
-                }
-            }
-            // Al cargar todo (imágenes, fuentes, etc., no solo el DOM)
-            window.addEventListener('load', function() {
-                forzarTamanoMapa();
-                // Y otra vez un poco después, por si el layout aún se está asentando
-                setTimeout(forzarTamanoMapa, 300);
-            });
-            // Y cada vez que cambie el tamaño de la ventana/contenedor
-            window.addEventListener('resize', forzarTamanoMapa);
-        })();
-        </script>
+<!-- Forzar al mapa a recalcular tamaño Y reencuadrar la vista correctamente
+     (soluciona franjas blancas al incrustar el mapa en un iframe/contenedor
+     cuyo tamaño final no coincide con el que había en el primer instante de carga) -->
+<script>
+(function() {
+    var mapExtent = [-632400.939942, 4401204.668099, -603295.451459, 4417056.487329];
+
+    function forzarTamanoMapa() {
+        if (typeof map !== 'undefined' && map.updateSize) {
+            map.updateSize();
+            map.getView().fit(mapExtent, { size: map.getSize() });
+        }
+    }
+
+    window.addEventListener('load', function() {
+        forzarTamanoMapa();
+        setTimeout(forzarTamanoMapa, 300);
+    });
+
+    window.addEventListener('resize', forzarTamanoMapa);
+})();
+</script>
     </body>
 </html>
