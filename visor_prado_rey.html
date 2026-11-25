@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visor Wikamino | Inventario propuesto Prado del Rey</title>
+
+  <!-- Estilos oficiales de API Mapea (CNIG / IGN) -->
+  <link rel="stylesheet" href="https://componentes.cnig.es/api-core/assets/css/apiign.ol.min.css" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: #f4f6f8;
+      color: #1f2933;
+    }
+    header {
+      background: #1b4332;
+      color: #ffffff;
+      padding: 12px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+      z-index: 1000;
+    }
+    header h1 {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    header p {
+      font-size: 0.8rem;
+      color: #d8f3dc;
+      margin-top: 2px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn {
+      background: #2d6a4f;
+      color: #fff;
+      border: 1px solid #52b788;
+      padding: 7px 13px;
+      border-radius: 5px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn:hover { background: #40916c; }
+    .btn-secondary {
+      background: #ffffff;
+      color: #1b4332;
+      border: 1px solid #b7e4c7;
+    }
+    .btn-secondary:hover { background: #e9f5ee; }
+
+    .layer-switch {
+      display: inline-flex;
+      background: #132a1e;
+      padding: 3px;
+      border-radius: 6px;
+      border: 1px solid #40916c;
+    }
+    .layer-switch button {
+      background: transparent;
+      color: #d8f3dc;
+      border: none;
+      padding: 5px 11px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .layer-switch button.active {
+      background: #52b788;
+      color: #081c15;
+      font-weight: 600;
+    }
+
+    #main-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      overflow: hidden;
+    }
+    #mapjs {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Complemento de niveles de zoom: botón deslizante sobre una línea */
+    #zoom-line-control {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 8px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    .zoom-step-btn {
+      width: 28px;
+      height: 24px;
+      border: 1px solid #2d6a4f;
+      background: #2d6a4f;
+      color: #ffffff;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .zoom-step-btn:hover { background: #40916c; }
+
+    .zoom-track-wrap {
+      position: relative;
+      height: 168px;
+      width: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 0;
+    }
+    .zoom-line {
+      position: absolute;
+      top: 8px;
+      bottom: 8px;
+      left: 50%;
+      width: 3px;
+      transform: translateX(-50%);
+      background: #94a3b8;
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    input[type="range"].zoom-slider-button {
+      writing-mode: vertical-lr;
+      direction: rtl;
+      appearance: slider-vertical;
+      -webkit-appearance: slider-vertical;
+      width: 28px;
+      height: 154px;
+      background: transparent;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .zoom-level-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #1b4332;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* Barra inferior de estado cartográfico */
+    #map-statusbar {
+      position: absolute;
+      bottom: 8px;
+      right: 14px;
+      background: rgba(19, 42, 30, 0.92);
+      color: #ecfdf5;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 0.74rem;
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      z-index: 900;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+    }
+
+    #info-panel {
+      position: absolute;
+      bottom: 24px;
+      left: 14px;
+      width: 365px;
+      max-width: calc(100vw - 28px);
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.97);
+      border-left: 4px solid #2d6a4f;
+      border-radius: 6px;
+      padding: 12px 14px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.22);
+      font-size: 0.82rem;
+      z-index: 900;
+    }
+    #info-panel h3 {
+      font-size: 0.9rem;
+      color: #1b4332;
+      margin-bottom: 6px;
+    }
+    #info-panel table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    #info-panel td {
+      padding: 4px 5px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    #info-panel td:first-child {
+      font-weight: 600;
+      color: #374151;
+      width: 36%;
+    }
+    .pager { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+    .pager-label { width: 100%; font-size: 0.74rem; color: #4b5563; margin-bottom: 2px; }
+    .pager button { min-width: 28px; height: 26px; padding: 0 7px; border: 1px solid #2d6a4f; background: #fff; color: #1b4332; border-radius: 4px; font-size: 0.78rem; cursor: pointer; }
+    .pager button:hover:not(:disabled) { background: #e9f5ee; }
+    .pager button.active { background: #2d6a4f; color: #fff; font-weight: 700; }
+    .pager button:disabled { opacity: 0.4; cursor: default; }
+    .pager .gap { color: #6b7280; padding: 0 2px; }
+    .status-note {
+      margin-top: 6px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      background: #f0fdf4;
+      color: #166534;
+      font-size: 0.75rem;
+      border: 1px solid #bbf7d0;
+    }
+    .status-warn {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Visor Wikamino | Inventario propuesto Prado del Rey</h1>
+    </div>
+    <div class="toolbar">
+      <div class="layer-switch" title="Conmutar cartografía y ortofotografía base">
+        <button id="btn-pnoa" class="active" onclick="activarOrtofoto('pnoa')">PNOA Máxima Actualidad</button>
+        <button id="btn-ams56" onclick="activarOrtofoto('ams56')">Vuelo Americano B (1956)</button>
+      </div>
+      <button class="btn btn-secondary" onclick="verTodosLosCaminos()">Encuadrar todos</button>
+    </div>
+  </header>
+
+  <div id="main-container">
+    <div id="mapjs" class="m-container"></div>
+
+    <!-- Complemento de niveles de zoom: botón deslizante sobre una línea + pasos +/- -->
+    <div id="zoom-line-control" title="Nivel de zoom (botón sobre línea)">
+      <button class="zoom-step-btn" title="Subir nivel de zoom" onclick="ajustarZoom(1)">+</button>
+      <div class="zoom-track-wrap">
+        <div class="zoom-line"></div>
+        <input
+          id="zoom-line-slider"
+          class="zoom-slider-button"
+          type="range"
+          min="5"
+          max="20"
+          step="0.5"
+          value="15"
+          aria-label="Nivel de zoom sobre línea"
+          oninput="fijarZoomDesdeLinea(this.value)"
+        />
+      </div>
+      <button class="zoom-step-btn" title="Bajar nivel de zoom" onclick="ajustarZoom(-1)">−</button>
+      <div id="zoom-level-badge" class="zoom-level-label">Z --</div>
+    </div>
+
+    <!-- Barra inferior: EPSG:25830 (o proyección efectiva de la vista), zoom, escala y coordenadas -->
+    <div id="map-statusbar">
+      <span>SRC: <strong id="sb-srs">EPSG:25830</strong></span>
+      <span id="sb-zoom">Zoom: --</span>
+      <span id="sb-scale">Escala: --</span>
+      <span id="sb-coords">X, Y: --, --</span>
+    </div>
+
+    <div id="info-panel">
+      <h3>Listado de caminos</h3>
+      <div id="status-box" class="status-note status-warn" style="display:none;"></div>
+      <div id="feature-details">
+        <p style="color:#4b5563;">Selecciona un camino en el desplegable o haz clic sobre él en el mapa:</p>
+        <select id="selector-caminos" style="width:100%; margin-top:6px; padding:6px; border-radius:4px; border:1px solid #6b7280;" onchange="seleccionarPorIndice(this.value)">
+          <option value="">-- Seleccionar camino --</option>
+        </select>
+        <div id="paginador-tramos"></div>
+        <div id="tabla-atributos"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Proj4js y API Mapea (CNIG / IGN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
+  <script src="https://componentes.cnig.es/api-core/vendor/browser-polyfill.js"></script>
+  <script src="https://componentes.cnig.es/api-core/js/apiign.ol.min.js"></script>
+  <script src="https://componentes.cnig.es/api-core/js/configuration.js"></script>
+
+  <script>
+    // URLs de la capa de caminos (se prueban en orden hasta que una responde)
+    const GEOJSON_URLS = [
+      "https://raw.githubusercontent.com/wikamino/wikamino-maps/main/caminos_prado_rey.geojson",
+      "https://wikamino.github.io/wikamino-maps/caminos_prado_rey.geojson" // solo si activas GitHub Pages en ese repo
+    ];
+    // CRS de los datos; se detecta automáticamente al cargar el GeoJSON
+    let CRS_DATOS = "EPSG:25830";
+
+    const PALETA_CAMINOS = [
+      "#e63946", "#2a9d8f", "#f4a261", "#3a86ff", "#8338ec",
+      "#ff006e", "#06d6a0", "#ffbe0b", "#fb5607", "#118ab2",
+      "#9b5de5", "#00bbf9", "#ef476f", "#52b788", "#d97706"
+    ];
+    const PATRONES_TRAZO = [
+      [12, 6],
+      [16, 6, 4, 6],
+      [8, 5],
+      [14, 5, 2, 5, 2, 5],
+      [10, 8]
+    ];
+
+    // El cuadro de estado solo se muestra si hay un error
+    function setStatus(msg, isWarn = false) {
+      const box = document.getElementById("status-box");
+      if (!box) return;
+      if (!isWarn) { box.style.display = "none"; return; }
+      box.textContent = msg;
+      box.style.display = "block";
+    }
+
+    function registrarEPSG25830() {
+      if (typeof proj4 !== "undefined") {
+        if (!proj4.defs("EPSG:25830")) {
+          proj4.defs("EPSG:25830", "+proj=utm +zone=30 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
+        }
+        if (typeof ol !== "undefined" && ol.proj && ol.proj.proj4 && typeof ol.proj.proj4.register === "function") {
+          ol.proj.proj4.register(proj4);
+        }
+      }
+      if (typeof ol !== "undefined" && ol.proj && !ol.proj.get("EPSG:25830")) {
+        ol.proj.addProjection(new ol.proj.Projection({
+          code: "EPSG:25830",
+          units: "m",
+          extent: [-720000, 3850000, 1100000, 4860000]
+        }));
+      }
+    }
+
+    function lonLatToProjection(lon, lat, targetProj) {
+      if (typeof ol !== "undefined" && ol.proj && typeof ol.proj.transform === "function") {
+        try {
+          const res = ol.proj.transform([lon, lat], "EPSG:4326", targetProj);
+          if (Array.isArray(res) && res.length >= 2 && res.every(isFinite)) {
+            return res;
+          }
+        } catch (e) {}
+      }
+      if (typeof proj4 !== "undefined") {
+        const res = proj4("EPSG:4326", targetProj, [lon, lat]);
+        if (Array.isArray(res) && res.length >= 2 && res.every(isFinite)) {
+          return res;
+        }
+      }
+      return [lon, lat];
+    }
+
+    function primeraCoordenada(geom) {
+      let c = geom && geom.coordinates;
+      while (Array.isArray(c) && Array.isArray(c[0])) c = c[0];
+      return Array.isArray(c) ? c : null;
+    }
+
+    function detectarCRS(data) {
+      const name = data && data.crs && data.crs.properties && data.crs.properties.name;
+      if (name) {
+        if (/CRS84/i.test(name)) return "EPSG:4326";
+        const m = String(name).match(/(\d{4,5})\s*$/);
+        if (m) return "EPSG:" + m[1];
+      }
+      // Sin bloque crs: por especificación GeoJSON sería 4326; se comprueba por magnitud
+      const f = (data.features || []).find(x => x && x.geometry);
+      const c = f ? primeraCoordenada(f.geometry) : null;
+      if (c && (Math.abs(c[0]) > 180 || Math.abs(c[1]) > 90)) return "EPSG:25830";
+      return "EPSG:4326";
+    }
+
+    async function obtenerGeoJSONCrudo() {
+      let ultimoError = null;
+      for (const url of GEOJSON_URLS) {
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error("HTTP " + resp.status + " en " + url);
+          const data = await resp.json();
+          if (data && Array.isArray(data.features) && data.features.length > 0) {
+            CRS_DATOS = detectarCRS(data);
+            console.info("GeoJSON cargado desde", url, "· CRS:", CRS_DATOS);
+            return data;
+          }
+          throw new Error("GeoJSON vacío en " + url);
+        } catch (err) {
+          console.warn("No se pudo cargar", url, err);
+          ultimoError = err;
+        }
+      }
+      throw new Error("No se pudo cargar la capa de caminos. " + (ultimoError ? ultimoError.message : ""));
+    }
+
+    function valorCampo(raw, nombres) {
+      const claves = Object.keys(raw);
+      for (const n of nombres) {
+        const k = claves.find(c => c.toLowerCase() === n.toLowerCase());
+        if (k !== undefined && raw[k] !== null && String(raw[k]).trim() !== "") return raw[k];
+      }
+      return null;
+    }
+
+    // Longitud de la geometría (solo para comparar tramos de un mismo camino)
+    function longitudGeom(g) {
+      let t = 0;
+      const rec = (c) => {
+        if (!Array.isArray(c) || !c.length || !Array.isArray(c[0])) return;
+        if (typeof c[0][0] === "number") {
+          for (let i = 1; i < c.length; i++) t += Math.hypot(c[i][0] - c[i - 1][0], c[i][1] - c[i - 1][1]);
+        } else c.forEach(rec);
+      };
+      if (g) rec(g.coordinates);
+      return t;
+    }
+
+    function prepararGeoJSONCaminos(rawGeoJSON) {
+      const sourceFC = rawGeoJSON || { features: [] };
+      const features = (sourceFC.features || []).map((f, rIdx) => {
+        const raw = f.properties || {};
+        const codigo = String(valorCampo(raw, ["codigo"]) ?? `FID-${raw.fid || (rIdx + 1)}`).trim();
+        return {
+          type: "Feature",
+          geometry: f.geometry,
+          properties: {
+            ...raw,
+            _featureIndex: rIdx,
+            _long: longitudGeom(f.geometry),
+            codigo,
+            nom_propuesto: valorCampo(raw, ["nom_propuesto", "nom_propue"]) || codigo,
+            titularidad: valorCampo(raw, ["titularidad", "titularida"]),
+            pecuaria: valorCampo(raw, ["pecuaria"]),
+            longitud: valorCampo(raw, ["longitud", "longitud_m", "SHAPE_Leng"]),
+            deslinde: valorCampo(raw, ["deslinde", "deslindado"]),
+            fotointerpretacion: valorCampo(raw, ["fotointerpretacion", "fotointerp"]),
+            firme: valorCampo(raw, ["firme"]),
+            municipio: valorCampo(raw, ["municipio"])
+          }
+        };
+      });
+      return { type: "FeatureCollection", crs: { type: "name", properties: { name: CRS_DATOS } }, features };
+    }
+
+    let caminosLista = [];          // un elemento por camino (codigo) con todos sus tramos
+    const caminoPorCodigo = {};
+    let estilosPorCodigo = {};      // mismo estilo para todos los tramos de un codigo
+    let caminoActual = null;
+    let tramoActual = 0;
+    let olFeatsResaltadas = [];
+
+    function construirCaminos(features) {
+      caminosLista = [];
+      Object.keys(caminoPorCodigo).forEach(k => delete caminoPorCodigo[k]);
+      features.forEach(f => {
+        const cod = f.properties.codigo;
+        let c = caminoPorCodigo[cod];
+        if (!c) { c = { codigo: cod, nombre: f.properties.nom_propuesto, tramos: [] }; caminoPorCodigo[cod] = c; caminosLista.push(c); }
+        c.tramos.push(f);
+      });
+      caminosLista.sort((a, b) => a.codigo.localeCompare(b.codigo, "es", { numeric: true }));
+      estilosPorCodigo = {};
+      caminosLista.forEach((c, i) => {
+        estilosPorCodigo[c.codigo] = {
+          color: PALETA_CAMINOS[i % PALETA_CAMINOS.length],
+          lineDash: PATRONES_TRAZO[Math.floor(i / PALETA_CAMINOS.length) % PATRONES_TRAZO.length]
+        };
+        let principal = c.tramos[0];
+        c.tramos.forEach(t => { if (t.properties._long > principal.properties._long) principal = t; });
+        c.tramos.forEach(t => { t.properties._principal = (t === principal); });
+        c.nombre = principal.properties.nom_propuesto;
+      });
+    }
+
+    let mapaMapea = null;
+    let olMap = null;
+    let vistaActivaCode = "EPSG:3857";
+    let capaPNOAOL = null;
+    let capaAMS1956OL = null;
+    let capaResaltadoOL = null;
+    let fuenteResaltadoOL = null;
+    let geojsonGlobal = null;
+    let olVectorHelper = null;
+
+    function actualizarControlesZoomYEstado() {
+      if (!olMap) return;
+      const view = olMap.getView();
+      const zoomRaw = view.getZoom();
+      const zoomNum = (typeof zoomRaw === "number" && isFinite(zoomRaw)) ? Number(zoomRaw.toFixed(1)) : null;
+
+      const slider = document.getElementById("zoom-line-slider");
+      if (slider && zoomNum !== null) {
+        const minV = Number(slider.min);
+        const maxV = Number(slider.max);
+        slider.value = String(Math.max(minV, Math.min(maxV, zoomNum)));
+      }
+
+      const badge = document.getElementById("zoom-level-badge");
+      if (badge) badge.textContent = zoomNum !== null ? `Z ${zoomNum}` : "Z --";
+
+      const sbZoom = document.getElementById("sb-zoom");
+      if (sbZoom) sbZoom.textContent = zoomNum !== null ? `Zoom: ${zoomNum}` : "Zoom: --";
+
+      const res = view.getResolution();
+      const sbScale = document.getElementById("sb-scale");
+      if (sbScale && typeof res === "number" && isFinite(res)) {
+        const scaleDenom = Math.round(res / 0.00028);
+        sbScale.textContent = `Escala ~1:${scaleDenom.toLocaleString("es-ES")}`;
+      }
+    }
+
+    function fijarZoomDesdeLinea(val) {
+      if (!olMap) return;
+      const z = Number(val);
+      if (isFinite(z)) {
+        olMap.getView().setZoom(z);
+        actualizarControlesZoomYEstado();
+      }
+    }
+
+    function ajustarZoom(delta) {
+      if (!olMap) return;
+      const view = olMap.getView();
+      const current = view.getZoom();
+      if (typeof current === "number" && isFinite(current)) {
+        view.animate({ zoom: current + delta, duration: 200 });
+      }
+    }
+
+    function crearOrtofotosTeseladasOL(projCode) {
+      const is25830 = (projCode === "EPSG:25830");
+      const projObj = ol.proj.get(projCode) || ol.proj.get("EPSG:3857");
+      const extentObj = projObj.getExtent();
+      const originObj = ol.extent.getTopLeft(extentObj);
+      const baseRes0 = is25830 ? 78271.51696402048 : 156543.03392804097;
+      const resolutionsArr = Array.from({ length: 22 }, (_, z) => baseRes0 / Math.pow(2, z));
+      const matrixIdsArr = Array.from({ length: 22 }, (_, z) => String(z));
+
+      const tileGrid = new ol.tilegrid.WMTS({
+        origin: originObj,
+        resolutions: resolutionsArr,
+        matrixIds: matrixIdsArr
+      });
+
+      const sourcePNOA = new ol.source.WMTS({
+        url: "https://www.ign.es/wmts/pnoa-ma",
+        layer: "OI.OrthoimageCoverage",
+        matrixSet: is25830 ? "EPSG:25830" : "GoogleMapsCompatible",
+        format: "image/jpeg",
+        style: "default",
+        projection: projObj,
+        tileGrid: tileGrid,
+        crossOrigin: "anonymous"
+      });
+
+      capaPNOAOL = new ol.layer.Tile({
+        source: sourcePNOA,
+        visible: true,
+        zIndex: 1
+      });
+
+      sourcePNOA.on("tileloaderror", function() {
+        if (capaPNOAOL && capaPNOAOL.get("fallbackApplied") !== true) {
+          capaPNOAOL.set("fallbackApplied", true);
+          capaPNOAOL.setSource(new ol.source.TileWMS({
+            url: "https://www.ign.es/wms-inspire/pnoa-ma",
+            params: { "LAYERS": "OI.OrthoimageCoverage", "TILED": true },
+            projection: projCode,
+            serverType: "mapserver",
+            crossOrigin: "anonymous"
+          }));
+        }
+      });
+
+      const sourceAMS1956 = new ol.source.WMTS({
+        url: "https://www.ign.es/wmts/ams-1956-1957",
+        layer: "AMS_1956-1957",
+        matrixSet: is25830 ? "EPSG:25830" : "GoogleMapsCompatible",
+        format: "image/jpeg",
+        style: "default",
+        projection: projObj,
+        tileGrid: tileGrid,
+        crossOrigin: "anonymous"
+      });
+
+      sourceAMS1956.on("tileloaderror", function() {
+        if (capaAMS1956OL && capaAMS1956OL.get("fallbackApplied") !== true) {
+          capaAMS1956OL.set("fallbackApplied", true);
+          capaAMS1956OL.setSource(new ol.source.TileWMS({
+            url: "https://www.ign.es/wms/pnoa-historico",
+            params: { "LAYERS": "AMS_1956-1957", "TILED": true },
+            projection: projCode,
+            serverType: "mapserver",
+            crossOrigin: "anonymous"
+          }));
+        }
+      });
+
+      capaAMS1956OL = new ol.layer.Tile({
+        source: sourceAMS1956,
+        visible: false,
+        zIndex: 2
+      });
+
+      olMap.addLayer(capaPNOAOL);
+      olMap.addLayer(capaAMS1956OL);
+    }
+
+    function estiloEntidadCamino(feature, resolution) {
+      const props = feature.getProperties ? feature.getProperties() : {};
+      const codigo = props.codigo || "";
+      const nombre = props.nom_propuesto || codigo;
+      const cfg = estilosPorCodigo[codigo] || { color: "#e63946", lineDash: [12, 6] };
+
+      const textoEtiqueta = codigo ? `${codigo} · ${nombre}` : nombre;
+      const resOk = (typeof resolution === "number" && isFinite(resolution));
+      // Tramo principal (el más largo) siempre candidato; el resto solo con zoom de detalle.
+      // overflow:false + declutter hacen que solo se pinte la etiqueta si cabe sobre la línea.
+      const mostrarEtiqueta = resOk ? (resolution <= 45 && (props._principal === true || resolution <= 2.5)) : true;
+
+      return new ol.style.Style({
+        stroke: new ol.style.Stroke({
+          color: cfg.color,
+          width: 4.5,
+          lineDash: cfg.lineDash,
+          lineCap: "butt",
+          lineJoin: "round"
+        }),
+        text: mostrarEtiqueta ? new ol.style.Text({
+          text: textoEtiqueta,
+          placement: "line",
+          textBaseline: "bottom",
+          offsetY: -8,
+          font: "700 14.5px 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+          fill: new ol.style.Fill({ color: "#ffffff" }),
+          stroke: new ol.style.Stroke({
+            color: "#0f172a",
+            width: 5,
+            lineJoin: "round"
+          }),
+          backgroundFill: new ol.style.Fill({ color: "rgba(15, 23, 42, 0.55)" }),
+          backgroundStroke: new ol.style.Stroke({ color: cfg.color, width: 1.5 }),
+          padding: [2, 6, 2, 6],
+          overflow: false
+        }) : undefined
+      });
+    }
+
+    function crearCapaVectorialOL(geojson, projCode) {
+      const format = new ol.format.GeoJSON({
+        dataProjection: CRS_DATOS,
+        featureProjection: projCode
+      });
+      const features = format.readFeatures(geojson);
+      const source = new ol.source.Vector({ features: features });
+
+      const vectorLayer = new ol.layer.Vector({
+        source: source,
+        style: estiloEntidadCamino,
+        declutter: true,
+        zIndex: 50
+      });
+
+      olMap.addLayer(vectorLayer);
+
+      fuenteResaltadoOL = new ol.source.Vector();
+      capaResaltadoOL = new ol.layer.Vector({
+        source: fuenteResaltadoOL,
+        style: estiloResaltado,
+        zIndex: 100
+      });
+      olMap.addLayer(capaResaltadoOL);
+
+      return { vectorLayer, source, format };
+    }
+
+    function crearMapaMapeaSeguro(centro3857) {
+      const opts = {
+        container: "mapjs",
+        zoom: 15,
+        center: {
+          x: centro3857[0],
+          y: centro3857[1],
+          draw: false
+        }
+      };
+      try {
+        return M.map(opts);
+      } catch (e1) {
+        return M.map({ ...opts, controls: [] });
+      }
+    }
+
+    async function iniciarVisor() {
+      registrarEPSG25830();
+
+      try {
+        const rawData = await obtenerGeoJSONCrudo();
+        geojsonGlobal = prepararGeoJSONCaminos(rawData);
+        construirCaminos(geojsonGlobal.features);
+        poblarSelector();
+      } catch (err) {
+        console.error("Error cargando GeoJSON:", err);
+        setStatus("Error al cargar el GeoJSON: " + err.message, true);
+        return;
+      }
+
+      const centro3857 = lonLatToProjection(-5.545, 36.786, "EPSG:3857");
+
+      try {
+        mapaMapea = crearMapaMapeaSeguro(centro3857);
+      } catch (errMap) {
+        console.error("Error inicializando M.map:", errMap);
+        setStatus("Error inicializando API Mapea: " + errMap.message, true);
+        return;
+      }
+
+      olMap = mapaMapea.getMapImpl();
+      if (olMap) {
+        const centro25830 = lonLatToProjection(-5.545, 36.786, "EPSG:25830");
+        let usando25830 = false;
+        try {
+          const p25830 = ol.proj.get("EPSG:25830");
+          if (p25830 && typeof proj4 !== "undefined" && proj4("EPSG:4326", "EPSG:25830", [-5.545, 36.786]).every(isFinite)) {
+            olMap.setView(new ol.View({
+              projection: p25830,
+              center: centro25830,
+              zoom: 15
+            }));
+            usando25830 = true;
+          }
+        } catch (eView25830) {
+          console.warn("Vista EPSG:25830 no aplicada directamente, manteniendo proyección actual:", eView25830);
+        }
+
+        const viewProj = olMap.getView().getProjection();
+        vistaActivaCode = (viewProj && viewProj.getCode()) ? viewProj.getCode() : (usando25830 ? "EPSG:25830" : "EPSG:3857");
+
+        const sbSrs = document.getElementById("sb-srs");
+        if (sbSrs) sbSrs.textContent = vistaActivaCode;
+
+        const existingLayers = olMap.getLayers().getArray().slice();
+        existingLayers.forEach(lyr => {
+          olMap.removeLayer(lyr);
+        });
+
+        crearOrtofotosTeseladasOL(vistaActivaCode);
+        olVectorHelper = crearCapaVectorialOL(geojsonGlobal, vistaActivaCode);
+
+        const extent = olVectorHelper.source.getExtent();
+        if (extent && extent.every(isFinite)) {
+          olMap.getView().fit(extent, { padding: [60, 60, 60, 400], maxZoom: 16 });
+        }
+
+        olMap.getView().on("change:resolution", actualizarControlesZoomYEstado);
+        olMap.on("moveend", actualizarControlesZoomYEstado);
+
+        olMap.on("pointermove", function(evt) {
+          if (!evt.coordinate) return;
+          const x = evt.coordinate[0];
+          const y = evt.coordinate[1];
+          const sbCoords = document.getElementById("sb-coords");
+          if (sbCoords && isFinite(x) && isFinite(y)) {
+            const unitLabel = vistaActivaCode === "EPSG:25830" ? "X, Y (m)" : "X, Y";
+            sbCoords.textContent = `${unitLabel}: ${x.toFixed(1)}, ${y.toFixed(1)}`;
+          }
+        });
+
+        olMap.on("singleclick", function(evt) {
+          let hecho = false;
+          olMap.forEachFeatureAtPixel(evt.pixel, function(feature) {
+            if (hecho) return;
+            const featObj = geojsonGlobal.features[Number(feature.get("_featureIndex"))];
+            const c = featObj && caminoPorCodigo[featObj.properties.codigo];
+            if (!c) return;
+            seleccionarCamino(caminosLista.indexOf(c), c.tramos.indexOf(featObj), false);
+            hecho = true;
+          }, { hitTolerance: 10, layerFilter: l => l === olVectorHelper.vectorLayer });
+        });
+
+        actualizarControlesZoomYEstado();
+      }
+
+    }
+
+    function activarOrtofoto(cual) {
+      if (!capaPNOAOL || !capaAMS1956OL) return;
+      const btnPnoa = document.getElementById("btn-pnoa");
+      const btnAms = document.getElementById("btn-ams56");
+
+      if (cual === "pnoa") {
+        capaAMS1956OL.setVisible(false);
+        capaPNOAOL.setVisible(true);
+        btnPnoa.classList.add("active");
+        btnAms.classList.remove("active");
+      } else {
+        capaPNOAOL.setVisible(false);
+        capaAMS1956OL.setVisible(true);
+        btnAms.classList.add("active");
+        btnPnoa.classList.remove("active");
+      }
+    }
+
+    function poblarSelector() {
+      const sel = document.getElementById("selector-caminos");
+      if (!sel) return;
+      sel.innerHTML = `<option value="">-- Seleccionar camino --</option>`;
+      caminosLista.forEach((c, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `${c.codigo} · ${c.nombre}`;
+        sel.appendChild(opt);
+      });
+    }
+
+    function estiloResaltado(feature) {
+      const actual = feature.get("_actual") === true;
+      return new ol.style.Style({
+        stroke: new ol.style.Stroke({
+          color: actual ? "#00e5ff" : "rgba(0, 229, 255, 0.55)",
+          width: actual ? 7 : 5,
+          lineDash: actual ? [12, 5] : [6, 6],
+          lineCap: "butt",
+          lineJoin: "round"
+        })
+      });
+    }
+
+    function resaltarCamino(camino, idxTramo) {
+      if (!fuenteResaltadoOL || !olVectorHelper) return;
+      fuenteResaltadoOL.clear();
+      olFeatsResaltadas = olVectorHelper.format.readFeatures({ type: "FeatureCollection", features: camino.tramos });
+      olFeatsResaltadas.forEach((f, i) => f.set("_actual", i === idxTramo));
+      fuenteResaltadoOL.addFeatures(olFeatsResaltadas);
+    }
+
+    function encuadrar(ext, duration) {
+      if (olMap && ext && ext.every(isFinite)) {
+        olMap.getView().fit(ext, { padding: [90, 90, 90, 410], maxZoom: 16, duration });
+      }
+    }
+
+    function seleccionarCamino(idxCamino, idxTramo = 0, hacerZoom = true) {
+      const c = caminosLista[Number(idxCamino)];
+      if (!c) return;
+      caminoActual = c;
+      tramoActual = Math.max(0, Math.min(idxTramo, c.tramos.length - 1));
+      const sel = document.getElementById("selector-caminos");
+      if (sel) sel.value = String(idxCamino);
+      resaltarCamino(c, tramoActual);
+      if (hacerZoom) encuadrar(fuenteResaltadoOL.getExtent(), 500);
+      mostrarTramo();
+    }
+
+    function seleccionarPorIndice(idx) {
+      if (idx === "") {
+        caminoActual = null;
+        if (fuenteResaltadoOL) fuenteResaltadoOL.clear();
+        document.getElementById("paginador-tramos").innerHTML = "";
+        document.getElementById("tabla-atributos").innerHTML = "";
+        return;
+      }
+      seleccionarCamino(idx, 0, true);
+    }
+
+    function irATramo(i) {
+      if (!caminoActual || i < 0 || i >= caminoActual.tramos.length) return;
+      tramoActual = i;
+      olFeatsResaltadas.forEach((f, k) => f.set("_actual", k === i));
+      const g = olFeatsResaltadas[i] && olFeatsResaltadas[i].getGeometry();
+      if (g) encuadrar(g.getExtent(), 400);
+      mostrarTramo();
+    }
+
+    function mostrarTramo() {
+      if (!caminoActual) return;
+      renderizarPaginador();
+      mostrarTablaAtributos(caminoActual.tramos[tramoActual].properties);
+    }
+
+    function renderizarPaginador() {
+      const cont = document.getElementById("paginador-tramos");
+      if (!cont) return;
+      const n = caminoActual ? caminoActual.tramos.length : 0;
+      if (n <= 1) { cont.innerHTML = ""; return; }
+      const p = tramoActual;
+      let html = `<div class="pager"><div class="pager-label">Este camino tiene ${n} tramos · tramo ${p + 1} de ${n}</div>`;
+      html += `<button ${p === 0 ? "disabled" : ""} onclick="irATramo(${p - 1})" title="Tramo anterior">‹</button>`;
+      let prev = -1;
+      for (let i = 0; i < n; i++) {
+        if (!(i === 0 || i === n - 1 || Math.abs(i - p) <= 1)) continue;
+        if (prev >= 0 && i - prev > 1) html += `<span class="gap">…</span>`;
+        html += `<button class="${i === p ? "active" : ""}" onclick="irATramo(${i})">${i + 1}</button>`;
+        prev = i;
+      }
+      html += `<button ${p === n - 1 ? "disabled" : ""} onclick="irATramo(${p + 1})" title="Tramo siguiente">›</button></div>`;
+      cont.innerHTML = html;
+    }
+
+    function verTodosLosCaminos() {
+      if (!olMap || !olVectorHelper) return;
+      const ext = olVectorHelper.source.getExtent();
+      if (ext && ext.every(isFinite)) {
+        olMap.getView().fit(ext, { padding: [60, 60, 60, 400], maxZoom: 16, duration: 500 });
+      }
+    }
+
+    function renderizarMuestraSimbologiaHTML(cfg) {
+      const pattern = (Array.isArray(cfg.lineDash) ? cfg.lineDash : [10, 6]).join(",");
+      return `
+        <svg width="42" height="14" viewBox="0 0 42 14" style="vertical-align:middle;" aria-label="Simbología del camino">
+          <line x1="2" y1="7" x2="40" y2="7" stroke="${cfg.color}" stroke-width="4.5" stroke-dasharray="${pattern}" stroke-linecap="butt" />
+        </svg>`;
+    }
+
+    function escapeHtml(v) {
+      return String(v).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    }
+    function fmt(v) {
+      return (v === null || v === undefined || String(v).trim() === "") ? "—" : escapeHtml(v);
+    }
+    function fmtLongitud(v) {
+      if (v === null || v === undefined || String(v).trim() === "") return "—";
+      const n = Number(String(v).replace(",", "."));
+      return isFinite(n) ? `${n.toLocaleString("es-ES", { maximumFractionDigits: 1 })} m` : escapeHtml(v);
+    }
+
+    // Ficha del tramo (orden y alias definidos por el usuario)
+    function mostrarTablaAtributos(p) {
+      const cfg = estilosPorCodigo[p.codigo] || { color: "#999999", lineDash: [10, 6] };
+      document.getElementById("tabla-atributos").innerHTML = `
+        <table>
+          <tr><td>Código</td><td><strong>${fmt(p.codigo)}</strong></td></tr>
+          <tr><td>Nombre</td><td>${fmt(p.nom_propuesto)}</td></tr>
+          <tr><td>Simbología</td><td>${renderizarMuestraSimbologiaHTML(cfg)}</td></tr>
+          <tr><td>Titularidad</td><td>${fmt(p.titularidad)}</td></tr>
+          <tr><td>¿Es vía pecuaria?</td><td>${fmt(p.pecuaria)}</td></tr>
+          <tr><td>Longitud</td><td>${fmtLongitud(p.longitud)}</td></tr>
+          <tr><td>¿Está deslindado?</td><td>${fmt(p.deslinde)}</td></tr>
+          <tr><td>Tipo de ajuste Ortofoto 1956</td><td>${fmt(p.fotointerpretacion)}</td></tr>
+          <tr><td>Tipo de firme</td><td>${fmt(p.firme)}</td></tr>
+          <tr><td>Municipio</td><td>${fmt(p.municipio)}</td></tr>
+        </table>`;
+    }
+
+    window.addEventListener("load", iniciarVisor);
+  </script>
+</body>
+</html>
