@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Visor Wikamino | Inventario propuesto Prado del Rey</title>
+  <title>Visor Wikamino | Inventario de caminos públicos de Prado del Rey (según cartografía antigua)</title>
 
   <!-- Estilos oficiales de API Mapea (CNIG / IGN) -->
   <link rel="stylesheet" href="https://componentes.cnig.es/api-core/assets/css/apiign.ol.min.css" />
@@ -86,6 +86,51 @@
       color: #081c15;
       font-weight: 600;
     }
+
+    .basemap-menu { position: relative; display: inline-block; }
+    .basemap-menu > button {
+      background: #132a1e; color: #d8f3dc; border: 1px solid #40916c; border-radius: 6px;
+      padding: 8px 12px; font-size: 0.8rem; cursor: pointer; font-weight: 500;
+    }
+    .basemap-menu > button.active { background: #52b788; color: #081c15; font-weight: 600; }
+    .basemap-list {
+      display: none; position: absolute; top: calc(100% + 4px); right: 0; min-width: 190px;
+      background: #132a1e; border: 1px solid #40916c; border-radius: 6px; overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3); z-index: 2000;
+    }
+    .basemap-list.open { display: block; }
+    .basemap-list button {
+      display: block; width: 100%; text-align: left; background: transparent; color: #d8f3dc;
+      border: none; padding: 9px 12px; font-size: 0.82rem; cursor: pointer;
+    }
+    .basemap-list button:hover { background: #1b4332; }
+    .basemap-list button.active { background: #52b788; color: #081c15; font-weight: 600; }
+    #info-panel .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    #btn-min-panel {
+      border: 1px solid #9ca3af; background: #fff; color: #374151; border-radius: 4px;
+      width: 28px; height: 24px; line-height: 1; font-weight: 700; cursor: pointer;
+    }
+    #info-panel.minimizado #feature-details { display: none; }
+
+    .basemap-list label {
+      display: flex; align-items: center; gap: 8px; padding: 9px 12px; color: #d8f3dc;
+      font-size: 0.82rem; cursor: pointer; white-space: nowrap;
+    }
+    .basemap-list label:hover { background: #1b4332; }
+    #popup-consulta {
+      display: none; position: fixed; right: 14px; bottom: 40px; width: 340px; max-width: calc(100vw - 28px);
+      max-height: 55vh; overflow: auto; background: #fff; color: #111827; font-size: 0.8rem;
+      border: 1px solid #9ca3af; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.35); z-index: 1500;
+    }
+    #popup-consulta .popup-head {
+      display: flex; justify-content: space-between; align-items: center; padding: 6px 10px;
+      background: #2d6a4f; color: #fff; position: sticky; top: 0;
+    }
+    #popup-consulta .popup-head button { background: transparent; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; line-height: 1; }
+    #popup-cuerpo { padding: 8px 10px; }
+    #popup-cuerpo table { width: 100%; border-collapse: collapse; }
+    #popup-cuerpo td { padding: 3px 4px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    #popup-cuerpo td:first-child { color: #4b5563; width: 38%; }
 
     #main-container {
       position: relative;
@@ -252,12 +297,25 @@
 <body>
   <header>
     <div>
-      <h1>Visor Wikamino | Inventario propuesto Prado del Rey</h1>
+      <h1>Visor Wikamino | Inventario de caminos públicos de Prado del Rey (según cartografía antigua)</h1>
     </div>
     <div class="toolbar">
       <div class="layer-switch" title="Conmutar cartografía y ortofotografía base">
         <button id="btn-pnoa" class="active" onclick="activarOrtofoto('pnoa')">PNOA Máxima Actualidad</button>
         <button id="btn-ams56" onclick="activarOrtofoto('ams56')">Vuelo Americano B (1956)</button>
+      </div>
+      <div class="basemap-menu">
+        <button id="btn-base" onclick="toggleMenuBase(event)" title="Otros mapas base">Mapas Base ▾</button>
+        <div id="menu-base" class="basemap-list">
+          <button id="btn-minutas" onclick="activarOrtofoto('minutas')">Planimetrías</button>
+          <button id="btn-mtn1" onclick="activarOrtofoto('mtn1')">MTN 1ª edición</button>
+          <button id="btn-aleman" onclick="activarOrtofoto('aleman')">Mapa Alemán 1944</button>
+          <button id="btn-catastro" onclick="activarOrtofoto('catastro')">Catastro</button>
+        </div>
+      </div>
+      <div class="basemap-menu">
+        <button id="btn-vect" onclick="toggleMenuVect(event)" title="Capas vectoriales (GeoJSON)">Capas Vectoriales ▾</button>
+        <div id="menu-vect" class="basemap-list" onclick="event.stopPropagation()"></div>
       </div>
       <button class="btn btn-secondary" onclick="verTodosLosCaminos()">Encuadrar todos</button>
     </div>
@@ -296,7 +354,7 @@
     </div>
 
     <div id="info-panel">
-      <h3>Listado de caminos</h3>
+      <div class="panel-head"><h3 style="margin:0;">Listado de caminos</h3><button id="btn-min-panel" onclick="minimizarPanel()" title="Minimizar panel">_</button></div>
       <div id="status-box" class="status-note status-warn" style="display:none;"></div>
       <div id="feature-details">
         <p style="color:#4b5563;">Selecciona un camino en el desplegable o haz clic sobre él en el mapa:</p>
@@ -325,10 +383,30 @@
     let CRS_DATOS = "EPSG:25830";
 
     const PALETA_CAMINOS = [
-      "#e63946", "#2a9d8f", "#f4a261", "#3a86ff", "#8338ec",
-      "#ff006e", "#06d6a0", "#ffbe0b", "#fb5607", "#118ab2",
-      "#9b5de5", "#00bbf9", "#ef476f", "#52b788", "#d97706"
+      "#e63946", "#f4a261", "#3a86ff", "#8338ec", "#ff006e", "#ffbe0b",
+      "#fb5607", "#9b5de5", "#ef476f", "#52b788", "#d97706", "#6a4c93",
+      "#80b918", "#b5179e", "#7f5539", "#588157", "#c1121f", "#ff7f50",
+      "#4361ee", "#9d4edd", "#bc6c25", "#2d6a4f", "#e07a5f", "#a8326b"
     ];
+    // Mapas base adicionales (menú "Mapas Base"), servidos por WMS
+    const BASES_EXTRA = [
+      { id: "minutas", url: "https://www.ign.es/wms/minutas-cartograficas", layers: "Minutas" },
+      { id: "mtn1", url: "https://www.ign.es/wms/primera-edicion-mtn", layers: "MTN50" },
+      { id: "aleman", url: "https://www.ideandalucia.es/wms/mta50r_aleman_1944", layers: "maa50_1940" },
+      { id: "catastro", url: "https://ovc.catastro.meh.es/Cartografia/WMS/ServidorWMS.aspx", layers: "Catastro", version: "1.1.1", format: "image/png" }
+    ];
+
+    // Capas vectoriales GeoJSON (menú "Capas Vectoriales"). Para añadir otra, basta una entrada más.
+    // El fichero se busca en la misma ruta de GitHub que la capa de caminos.
+    const CAPAS_VECTORIALES = [
+      {
+        id: "termino_municipal", nombre: "Término municipal", fichero: "termino_municipal_prado_del_rey.geojson",
+        estilo: estiloTerminoMunicipal, zIndex: 40
+      }
+    ];
+    let capasVect = {};
+    let capasBaseExtra = {};
+    let caminosVisibles = true;
     const PATRONES_TRAZO = [
       [12, 6],
       [16, 6, 4, 6],
@@ -493,7 +571,7 @@
       caminosLista.forEach((c, i) => {
         estilosPorCodigo[c.codigo] = {
           color: PALETA_CAMINOS[i % PALETA_CAMINOS.length],
-          lineDash: PATRONES_TRAZO[Math.floor(i / PALETA_CAMINOS.length) % PATRONES_TRAZO.length]
+          lineDash: null
         };
         let principal = c.tramos[0];
         c.tramos.forEach(t => { if (t.properties._long > principal.properties._long) principal = t; });
@@ -632,15 +710,39 @@
         zIndex: 2
       });
 
+      capasBaseExtra = {};
+      BASES_EXTRA.forEach((b, i) => {
+        capasBaseExtra[b.id] = new ol.layer.Tile({
+          source: new ol.source.TileWMS({
+            url: b.url,
+            params: Object.assign({ "LAYERS": b.layers, "TILED": true }, b.version ? { "VERSION": b.version } : {}, b.format ? { "FORMAT": b.format } : {}),
+            projection: projCode,
+            serverType: "mapserver",
+            crossOrigin: "anonymous"
+          }),
+          visible: false,
+          zIndex: 3 + i
+        });
+        olMap.addLayer(capasBaseExtra[b.id]);
+      });
       olMap.addLayer(capaPNOAOL);
       olMap.addLayer(capaAMS1956OL);
+    }
+
+    // Grosor según escala: más fino cuanto más alejado el zoom
+    function anchoCamino(res) {
+      if (!(res > 0)) return 4.5;
+      if (res >= 40) return 1.5;
+      if (res >= 15) return 2;
+      if (res >= 6) return 3;
+      return 4.5;
     }
 
     function estiloEntidadCamino(feature, resolution) {
       const props = feature.getProperties ? feature.getProperties() : {};
       const codigo = props.codigo || "";
       const nombre = props.nom_propuesto || codigo;
-      const cfg = estilosPorCodigo[codigo] || { color: "#e63946", lineDash: [12, 6] };
+      const cfg = estilosPorCodigo[codigo] || { color: "#e63946", lineDash: null };
 
       const textoEtiqueta = codigo ? `${codigo} · ${nombre}` : nombre;
       const resOk = (typeof resolution === "number" && isFinite(resolution));
@@ -651,7 +753,7 @@
       return new ol.style.Style({
         stroke: new ol.style.Stroke({
           color: cfg.color,
-          width: 4.5,
+          width: anchoCamino(resolution),
           lineDash: cfg.lineDash,
           lineCap: "butt",
           lineJoin: "round"
@@ -806,8 +908,20 @@
             seleccionarCamino(caminosLista.indexOf(c), c.tramos.indexOf(featObj), false);
             hecho = true;
           }, { hitTolerance: 10, layerFilter: l => l === olVectorHelper.vectorLayer });
+          if (hecho) { cerrarPopup(); return; }
+
+          let featHit = null, capaHit = null;
+          const capasV = Object.keys(capasVect).map(k => capasVect[k]);
+          olMap.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
+            if (!featHit) { featHit = feature; capaHit = layer; }
+          }, { hitTolerance: 8, layerFilter: l => capasV.indexOf(l) >= 0 && l.getVisible() });
+          if (featHit) { mostrarPopupAtributos(capaHit.get("nombre") || "Capa vectorial", featHit); return; }
+
+          if (capasBaseExtra.catastro && capasBaseExtra.catastro.getVisible()) { consultarCatastro(evt.coordinate); return; }
+          cerrarPopup();
         });
 
+        poblarMenuVectoriales();
         actualizarControlesZoomYEstado();
       }
 
@@ -815,20 +929,145 @@
 
     function activarOrtofoto(cual) {
       if (!capaPNOAOL || !capaAMS1956OL) return;
-      const btnPnoa = document.getElementById("btn-pnoa");
-      const btnAms = document.getElementById("btn-ams56");
+      capaPNOAOL.setVisible(cual === "pnoa");
+      capaAMS1956OL.setVisible(cual === "ams56");
+      BASES_EXTRA.forEach(b => { if (capasBaseExtra[b.id]) capasBaseExtra[b.id].setVisible(cual === b.id); });
+      ["pnoa", "ams56"].concat(BASES_EXTRA.map(b => b.id)).forEach(id => {
+        const btn = document.getElementById("btn-" + id);
+        if (btn) btn.classList.toggle("active", id === cual);
+      });
+      const btnBase = document.getElementById("btn-base");
+      if (btnBase) btnBase.classList.toggle("active", BASES_EXTRA.some(b => b.id === cual));
+      const menu = document.getElementById("menu-base");
+      if (menu) menu.classList.remove("open");
+    }
 
-      if (cual === "pnoa") {
-        capaAMS1956OL.setVisible(false);
-        capaPNOAOL.setVisible(true);
-        btnPnoa.classList.add("active");
-        btnAms.classList.remove("active");
-      } else {
-        capaPNOAOL.setVisible(false);
-        capaAMS1956OL.setVisible(true);
-        btnAms.classList.add("active");
-        btnPnoa.classList.remove("active");
+    function cerrarMenus() {
+      ["menu-base", "menu-vect"].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.classList.remove("open");
+      });
+    }
+    function toggleMenuBase(ev) {
+      ev.stopPropagation();
+      const m = document.getElementById("menu-base");
+      const abrir = !m.classList.contains("open");
+      cerrarMenus();
+      if (abrir) m.classList.add("open");
+    }
+    function toggleMenuVect(ev) {
+      ev.stopPropagation();
+      const m = document.getElementById("menu-vect");
+      const abrir = !m.classList.contains("open");
+      cerrarMenus();
+      if (abrir) m.classList.add("open");
+    }
+    document.addEventListener("click", cerrarMenus);
+
+    // --- Capas vectoriales GeoJSON ---
+    function estiloTerminoMunicipal() {
+      // Punto y raya negro sobre un halo blanco: se ve sobre ortofotos y mapas claros u oscuros
+      return [
+        new ol.style.Style({ fill: null, stroke: new ol.style.Stroke({ color: "rgba(255, 255, 255, 0.95)", width: 5.5 }), zIndex: 1 }),
+        new ol.style.Style({ fill: null, stroke: new ol.style.Stroke({ color: "#111111", width: 2.2, lineDash: [14, 5, 2, 5] }), zIndex: 2 })
+      ];
+    }
+
+    function normTxt(v) {
+      return String(v === null || v === undefined ? "" : v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+    }
+
+    function poblarMenuVectoriales() {
+      const m = document.getElementById("menu-vect");
+      if (!m) return;
+      m.innerHTML = "";
+      CAPAS_VECTORIALES.forEach(def => {
+        const lab = document.createElement("label");
+        lab.innerHTML = `<input type="checkbox" id="chk-vect-${def.id}" onchange="toggleCapaVectorial('${def.id}', this.checked)"> <svg width="34" height="12" viewBox="0 0 34 12" fill="none" aria-hidden="true"><line x1="1" y1="6" x2="33" y2="6" stroke="#ffffff" stroke-width="5" fill="none"/><line x1="1" y1="6" x2="33" y2="6" stroke="#111111" stroke-width="2" stroke-dasharray="9,3,1.5,3" fill="none"/></svg> ${escapeHtml(def.nombre)}`;
+        m.appendChild(lab);
+      });
+    }
+
+    async function cargarCapaVectorial(def) {
+      let ultimo = null;
+      for (const base of GEOJSON_URLS) {
+        const url = base.replace(/[^\/]+$/, def.fichero);
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error("HTTP " + resp.status + " en " + url);
+          const data = await resp.json();
+          let crs = detectarCRS(data);
+          if (!ol.proj.get(crs)) crs = "EPSG:4326";
+          const format = new ol.format.GeoJSON({ dataProjection: crs, featureProjection: vistaActivaCode });
+          let feats = format.readFeatures(data);
+          if (def.filtro) {
+            feats = feats.filter(f => normTxt(f.get(def.filtro.campo)) === normTxt(def.filtro.valor));
+          }
+          if (!feats.length) throw new Error("el fichero no contiene entidades");
+          const capa = new ol.layer.Vector({ source: new ol.source.Vector({ features: feats }), style: def.estilo, zIndex: def.zIndex || 40 });
+          capa.set("nombre", def.nombre);
+          return capa;
+        } catch (err) {
+          console.warn("No se pudo cargar", url, err);
+          ultimo = err;
+        }
       }
+      throw ultimo || new Error("sin URL disponible");
+    }
+
+    async function toggleCapaVectorial(id, activa) {
+      const def = CAPAS_VECTORIALES.find(c => c.id === id);
+      if (!def) return;
+      if (!activa) { if (capasVect[id]) capasVect[id].setVisible(false); return; }
+      try {
+        if (!capasVect[id]) { capasVect[id] = await cargarCapaVectorial(def); olMap.addLayer(capasVect[id]); }
+        capasVect[id].setVisible(true);
+      } catch (err) {
+        setStatus("No se pudo cargar la capa “" + def.nombre + "”: " + err.message, true);
+        const cb = document.getElementById("chk-vect-" + id);
+        if (cb) cb.checked = false;
+      }
+    }
+
+    // --- Consulta (ventana de información) ---
+    function mostrarPopup(titulo, html) {
+      document.getElementById("popup-titulo").textContent = titulo;
+      document.getElementById("popup-cuerpo").innerHTML = html;
+      document.getElementById("popup-consulta").style.display = "block";
+    }
+    function cerrarPopup() { document.getElementById("popup-consulta").style.display = "none"; }
+
+    function mostrarPopupAtributos(titulo, feature) {
+      const props = feature.getProperties();
+      const gname = feature.getGeometryName();
+      const filas = Object.keys(props)
+        .filter(k => k !== gname && k.charAt(0) !== "_" && props[k] !== null && String(props[k]).trim() !== "")
+        .map(k => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(props[k])}</td></tr>`).join("");
+      mostrarPopup(titulo, filas ? `<table>${filas}</table>` : "<em>Sin atributos</em>");
+    }
+
+    function consultarCatastro(coord) {
+      const src = capasBaseExtra.catastro && capasBaseExtra.catastro.getSource();
+      if (!src) return;
+      const view = olMap.getView();
+      const url = src.getFeatureInfoUrl(coord, view.getResolution(), view.getProjection(), { INFO_FORMAT: "text/html", QUERY_LAYERS: "Catastro" });
+      if (!url) return;
+      mostrarPopup("Catastro", `<iframe src="${escapeHtml(url)}" style="width:100%; height:240px; border:0;"></iframe><p style="margin:6px 0 0;"><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir en una pestaña nueva</a></p>`);
+    }
+
+    function minimizarPanel() {
+      const panel = document.getElementById("info-panel");
+      const min = panel.classList.toggle("minimizado");
+      const b = document.getElementById("btn-min-panel");
+      b.textContent = min ? "□" : "_";
+      b.title = min ? "Restaurar panel" : "Minimizar panel";
+    }
+
+    // Muestra u oculta los caminos (y su resaltado) para ver el fondo
+    function toggleCaminos(v) {
+      caminosVisibles = !!v;
+      if (olVectorHelper) olVectorHelper.vectorLayer.setVisible(caminosVisibles);
+      if (capaResaltadoOL) capaResaltadoOL.setVisible(caminosVisibles);
     }
 
     function poblarSelector() {
@@ -843,16 +1082,18 @@
       });
     }
 
-    function estiloResaltado(feature) {
+    function estiloResaltado(feature, resolution) {
       const actual = feature.get("_actual") === true;
+      const cfg = estilosPorCodigo[feature.get("codigo")] || { color: "#e63946" };
+      const base = anchoCamino(resolution);
       return new ol.style.Style({
         stroke: new ol.style.Stroke({
-          color: actual ? "#00e5ff" : "rgba(0, 229, 255, 0.55)",
-          width: actual ? 7 : 5,
-          lineDash: actual ? [12, 5] : [6, 6],
+          color: actual ? "#00e5ff" : cfg.color,
+          width: actual ? base + 4 : base + 2.5,
           lineCap: "butt",
           lineJoin: "round"
-        })
+        }),
+        zIndex: actual ? 2 : 1
       });
     }
 
@@ -936,10 +1177,9 @@
     }
 
     function renderizarMuestraSimbologiaHTML(cfg) {
-      const pattern = (Array.isArray(cfg.lineDash) ? cfg.lineDash : [10, 6]).join(",");
       return `
         <svg width="42" height="14" viewBox="0 0 42 14" style="vertical-align:middle;" aria-label="Simbología del camino">
-          <line x1="2" y1="7" x2="40" y2="7" stroke="${cfg.color}" stroke-width="4.5" stroke-dasharray="${pattern}" stroke-linecap="butt" />
+          <line x1="2" y1="7" x2="40" y2="7" stroke="${cfg.color}" stroke-width="4.5" stroke-linecap="butt" />
         </svg>`;
     }
 
@@ -957,12 +1197,12 @@
 
     // Ficha del tramo (orden y alias definidos por el usuario)
     function mostrarTablaAtributos(p) {
-      const cfg = estilosPorCodigo[p.codigo] || { color: "#999999", lineDash: [10, 6] };
+      const cfg = estilosPorCodigo[p.codigo] || { color: "#999999", lineDash: null };
       document.getElementById("tabla-atributos").innerHTML = `
         <table>
           <tr><td>Código</td><td><strong>${fmt(p.codigo)}</strong></td></tr>
           <tr><td>Nombre</td><td>${fmt(p.nom_propuesto)}</td></tr>
-          <tr><td>Simbología</td><td>${renderizarMuestraSimbologiaHTML(cfg)}</td></tr>
+          <tr><td>Simbología</td><td><label style="cursor:pointer;"><input type="checkbox" ${caminosVisibles ? "checked" : ""} onchange="toggleCaminos(this.checked)" style="vertical-align:middle; margin-right:6px;" title="Mostrar u ocultar los caminos">${renderizarMuestraSimbologiaHTML(cfg)}</label></td></tr>
           <tr><td>Titularidad</td><td>${fmt(p.titularidad)}</td></tr>
           <tr><td>¿Es vía pecuaria?</td><td>${fmt(p.pecuaria)}</td></tr>
           <tr><td>Longitud</td><td>${fmtLongitud(p.longitud)}</td></tr>
@@ -975,5 +1215,9 @@
 
     window.addEventListener("load", iniciarVisor);
   </script>
+<div id="popup-consulta">
+  <div class="popup-head"><strong id="popup-titulo"></strong><button onclick="cerrarPopup()" title="Cerrar">×</button></div>
+  <div id="popup-cuerpo"></div>
+</div>
 </body>
 </html>
