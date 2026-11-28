@@ -543,7 +543,8 @@
             deslinde: valorCampo(raw, ["deslinde", "deslindado"]),
             fotointerpretacion: valorCampo(raw, ["fotointerpretacion", "fotointerp"]),
             firme: valorCampo(raw, ["firme"]),
-            municipio: valorCampo(raw, ["municipio"])
+            municipio: valorCampo(raw, ["municipio"]),
+            tramo: valorCampo(raw, ["tramo"])
           }
         };
       });
@@ -573,6 +574,14 @@
           color: PALETA_CAMINOS[i % PALETA_CAMINOS.length],
           lineDash: null
         };
+        // Orden de los tramos: por el campo "tramo" (001, 002...) y, si falta o empata, por el orden del fichero
+        c.tramos.sort((x, y) => {
+          const tx = x.properties.tramo, ty = y.properties.tramo;
+          if (tx === null && ty === null) return x.properties._featureIndex - y.properties._featureIndex;
+          if (tx === null) return 1;
+          if (ty === null) return -1;
+          return String(tx).localeCompare(String(ty), "es", { numeric: true }) || (x.properties._featureIndex - y.properties._featureIndex);
+        });
         let principal = c.tramos[0];
         c.tramos.forEach(t => { if (t.properties._long > principal.properties._long) principal = t; });
         c.tramos.forEach(t => { t.properties._principal = (t === principal); });
