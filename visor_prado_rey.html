@@ -1046,13 +1046,42 @@
       mostrarPopup(titulo, filas ? `<table>${filas}</table>` : "<em>Sin atributos</em>");
     }
 
-    function consultarCatastro(coord) {
+    async function consultarCatastro(coord) {
       const src = capasBaseExtra.catastro && capasBaseExtra.catastro.getSource();
       if (!src) return;
       const view = olMap.getView();
       const url = src.getFeatureInfoUrl(coord, view.getResolution(), view.getProjection(), { INFO_FORMAT: "text/html", QUERY_LAYERS: "Catastro" });
       if (!url) return;
-      mostrarPopup("Catastro", `<iframe src="${escapeHtml(url)}" style="width:100%; height:240px; border:0;"></iframe><p style="margin:6px 0 0;"><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir en una pestaña nueva</a></p>`);
+      const enlace = `<p style="margin:8px 0 0;"><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir en una pestaña nueva</a></p>`;
+      mostrarPopup("Catastro", "<em>Consultando…</em>");
+      try {
+        // Se descarga la respuesta para que sus enlaces (referencia catastral) se abran en una pestaña nueva
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const doc = new DOMParser().parseFromString(await resp.text(), "text/html");
+        doc.querySelectorAll("script, style, link, iframe, object, embed, base").forEach(n => n.remove());
+        doc.querySelectorAll("*").forEach(el => {
+          Array.from(el.attributes).forEach(at => { if (/^on/i.test(at.name)) el.removeAttribute(at.name); });
+        });
+        doc.querySelectorAll("a[href]").forEach(a => {
+          let abs = null;
+          try { abs = new URL(a.getAttribute("href"), url); } catch (e) { /* enlace no válido */ }
+          if (abs && /^https?:$/.test(abs.protocol)) {
+            a.setAttribute("href", abs.href);
+            a.setAttribute("target", "_blank");
+            a.setAttribute("rel", "noopener");
+          } else {
+            a.removeAttribute("href");
+          }
+        });
+        const cuerpo = doc.body ? doc.body.innerHTML.trim() : "";
+        if (!cuerpo) throw new Error("respuesta vacía");
+        mostrarPopup("Catastro", cuerpo);
+      } catch (err) {
+        // Si el navegador no permite leer la respuesta, se muestra tal cual en un marco
+        console.warn("Catastro: no se pudo leer la respuesta, se usa el marco", err);
+        mostrarPopup("Catastro", `<iframe src="${escapeHtml(url)}" style="width:100%; height:240px; border:0;"></iframe><p style="margin:6px 0 0; color:#4b5563;">Para abrir la ficha de la parcela usa el enlace de abajo.</p>` + enlace);
+      }
     }
 
     function minimizarPanel() {
